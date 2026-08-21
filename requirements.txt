@@ -1,4 +1,7 @@
-flask
+fastapi
+uvicorn[standard]
+python-multipart
+jinja2
 pandas
 numpy
 langchain

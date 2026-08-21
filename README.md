@@ -1,8 +1,8 @@
 # AI Business Analysis Report Generator
 
-Upload a CSV, get a written analysis back. This is a small Flask app that computes summary
-statistics locally with pandas, sends that summary to a LLaMA model hosted on Groq, and renders
-the model's report in the browser.
+Upload a CSV, get a written analysis back. This is a FastAPI service that computes summary
+statistics locally with pandas, sends that summary to a LLaMA model hosted on Groq, and returns
+the model's report — either rendered in the browser or as JSON from the API.
 
 The point is that the numbers are never guessed. `pandas.describe()` does the arithmetic, and the
 LLM is only asked to interpret and write up figures it has been handed — which keeps the statistics
@@ -11,16 +11,33 @@ in the report honest.
 ## How it works
 
 ```
-CSV upload  ->  pandas.describe()  ->  prompt template  ->  Groq (LLaMA)  ->  rendered report
-                     + df.head()       (LangChain)
+CSV upload  ->  pandas.describe()  ->  prompt template  ->  Groq (LLaMA)  ->  report
+                     + df.head()       (LangChain)             (HTML or JSON)
 ```
 
 - **pandas** computes the summary statistics and takes a sample of rows.
 - **LangChain** (`PromptTemplate`) builds the prompt from those two pieces.
 - **Groq** runs the LLaMA model and returns the write-up.
-- **Flask** handles the upload and renders the result.
+- **FastAPI** handles the upload and returns the result — as a rendered page (`POST /`) or as JSON
+  (`POST /api/reports`) — in a single request.
 
 ## Setup
+
+### Option A: Docker
+
+1. Get a free API key from https://console.groq.com/keys, then create your `.env`:
+   ```
+   cp .env.example .env
+   ```
+   Open `.env` and paste your key into `GROQ_API_KEY`.
+
+2. Build and run:
+   ```
+   docker compose up --build
+   ```
+   Open http://localhost:8000 and upload a CSV.
+
+### Option B: Local Python
 
 1. Clone and enter the repo:
    ```
@@ -41,9 +58,17 @@ CSV upload  ->  pandas.describe()  ->  prompt template  ->  Groq (LLaMA)  ->  re
 
 4. Run it:
    ```
-   python app.py
+   uvicorn main:app --reload
    ```
-   Open http://127.0.0.1:5000 and upload a CSV.
+   Open http://127.0.0.1:8000 and upload a CSV. Interactive API docs are at `/docs`.
+
+## API
+
+`POST /api/reports` accepts a multipart CSV upload and returns the report as JSON:
+
+```
+curl -F "file=@data.csv" http://localhost:8000/api/reports
+```
 
 ## Configuration
 
@@ -51,7 +76,6 @@ CSV upload  ->  pandas.describe()  ->  prompt template  ->  Groq (LLaMA)  ->  re
 | --- | --- | --- | --- |
 | `GROQ_API_KEY` | yes | — | Your Groq API key |
 | `GROQ_MODEL` | no | `llama-3.3-70b-versatile` | Which Groq model to use |
-| `FLASK_SECRET_KEY` | no | random per run | Flask session signing key |
 
 `.env` is gitignored. Do not commit it.
 
@@ -62,13 +86,6 @@ CSV upload  ->  pandas.describe()  ->  prompt template  ->  Groq (LLaMA)  ->  re
 - Very wide CSVs produce a large `describe()` payload and can run into the model's context limit.
 - There is no upload size cap yet, and reports are not persisted between requests.
 
-## Credits
-
-Built on the [genAI-data-analysis-report-generator](https://github.com/amlanmohanty1/genAI-data-analysis-report-generator)
-project by Amlan Mohanty, released under the MIT License. This version adds environment-based
-configuration, input and API-key validation, a configurable model, and assorted fixes.
-
-Maintained by Shiva Singh.
 
 ## License
 
